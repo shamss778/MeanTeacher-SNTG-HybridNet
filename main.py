@@ -23,6 +23,9 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import torchvision.datasets
+import torch 
+
+device = torch.device('cpu')
 
 np.random.seed(5)
 torch.manual_seed(5)
@@ -85,8 +88,8 @@ def main(args):
 
 
 #   Intializing the model
-    model = models.__dict__[args.model](args, data=None).cuda()
-    ema_model = models.__dict__[args.model](args,nograd = True, data=None).cuda()
+    model = models.__dict__[args.model](args, data=None).to(device)
+    ema_model = models.__dict__[args.model](args,nograd = True, data=None).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -170,7 +173,7 @@ def train(train_loader, model, ema_model, optimizer, epoch):
     lossess = AverageMeter()
     running_loss = 0.0
 
-    class_criterion = nn.CrossEntropyLoss(reduction='sum', ignore_index=NO_LABEL).cuda()
+    class_criterion = nn.CrossEntropyLoss(reduction='sum', ignore_index=NO_LABEL)
 
     consistency_criterion = losses.softmax_mse_loss
 
@@ -182,10 +185,10 @@ def train(train_loader, model, ema_model, optimizer, epoch):
         if (input.size(0) != args.batch_size):
             continue
 
-        input_var = torch.autograd.Variable(input).cuda()
+        input_var = torch.autograd.Variable(input).to(device)
 
 
-        target_var = torch.autograd.Variable(target.cuda(non_blocking=True))
+        target_var = torch.autograd.Variable(target.to(device))
 
         minibatch_size = len(target_var)
         labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
@@ -203,8 +206,8 @@ def train(train_loader, model, ema_model, optimizer, epoch):
 
         if not args.supervised_mode:
             with torch.no_grad():
-                ema_input_var = torch.autograd.Variable(ema_input)
-                ema_input_var = ema_input_var.cuda()
+                ema_input_var = torch.autograd.Variable(ema_input).to(device)
+
 
             if args.sntg == True:
                 ema_model_out,ema_h = ema_model(ema_input_var)
@@ -219,9 +222,9 @@ def train(train_loader, model, ema_model, optimizer, epoch):
             if args.consistency:
                 if args.sntg: # implementation of SNTG loss
                     indx = (target == -1)
-                    new_target = target.clone().cuda()
+                    new_target = target.clone().to(device)
                     _, new_pred = ema_model_out.max(dim=1)
-                    new_pred = new_pred.cuda()
+                    new_pred = new_pred.to(device)
                     new_target[indx] = new_pred[indx]
                     new_target_h1 = new_target[:minibatch_size // 2]
                     new_target_h2 = new_target[minibatch_size // 2:]
@@ -282,8 +285,8 @@ def validate(eval_loader, model):
     for i, (input, target) in enumerate(eval_loader):
 
         with torch.no_grad():
-            input_var = input.cuda()
-            target_var = target.cuda(non_blocking=True)
+            input_var = input.to(device)
+            target_var = target.to(device)
 
             labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
             assert labeled_minibatch_size > 0
@@ -321,7 +324,6 @@ def get_current_consistency_weight(epoch):
 if __name__ == '__main__':
     args = get_parameters()
 
-    args.device = torch.device(
-        "cuda:%d" % (args.gpu_id) if torch.cuda.is_available() else "cpu")
+    args.device = "cpu"
 
     main(args)

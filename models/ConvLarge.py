@@ -6,6 +6,8 @@ from torch.nn.utils import weight_norm
 from torch.autograd.variable import Variable
 import math
 
+device = torch.device('cpu')
+
 __all__ = ['convlarge']
 
 
@@ -14,7 +16,7 @@ class GaussianNoise(nn.Module):
 
     def __init__(self, shape=(100, 1, 28, 28), std=0.05):
         super(GaussianNoise, self).__init__()
-        self.noise1 = Variable(torch.zeros(shape).cuda())
+        self.noise1 = Variable(torch.zeros(shape).to(device))
         self.std1 = std
         self.register_buffer('noise2',self.noise1) # My own contribution , registering buffer for data parallel usage
 
@@ -143,8 +145,8 @@ def convlarge(args,data= None,nograd=False):
 
 
 
-    model = model.cuda()
-    model = nn.DataParallel(model).cuda()
+    model = model.to(device)
+    model = nn.DataParallel(model).to(device)
 
     if nograd:
         for param in model.parameters():
